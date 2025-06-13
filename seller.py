@@ -12,7 +12,20 @@ logger = logging.getLogger(__file__)
 
 
 def get_product_list(last_id, client_id, seller_token):
-    """Получить список товаров магазина озон"""
+    """Отправляет запрос api Ozon и получает список товаров на сайте Ozon..
+
+    Args:
+        last_id: id последнего товара из предыдущего запроса.
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        Вернет результат JSON-ответа в виде словаря, содержащего список товаров.
+
+    Raises:
+        requests.exceptions.RequestException:
+    """
+
     url = "https://api-seller.ozon.ru/v2/product/list"
     headers = {
         "Client-Id": client_id,
@@ -32,7 +45,19 @@ def get_product_list(last_id, client_id, seller_token):
 
 
 def get_offer_ids(client_id, seller_token):
-    """Получить артикулы товаров магазина озон"""
+    """Получает артикулы товаров на сайте Ozon.
+
+    Args:
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        Возвращает cписок артикулов товаров.
+
+    Raises:
+        requests.exceptions.RequestException:
+    """
+
     last_id = ""
     product_list = []
     while True:
@@ -49,7 +74,20 @@ def get_offer_ids(client_id, seller_token):
 
 
 def update_price(prices: list, client_id, seller_token):
-    """Обновить цены товаров"""
+    """Обновляет цены товаров на сайте Ozon.
+
+    Args:
+        prices: Список цен для обновления.
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        Возвращяет результат в виде словаря.
+
+    Raises:
+        requests.exceptions.RequestException:
+    """
+
     url = "https://api-seller.ozon.ru/v1/product/import/prices"
     headers = {
         "Client-Id": client_id,
@@ -62,7 +100,20 @@ def update_price(prices: list, client_id, seller_token):
 
 
 def update_stocks(stocks: list, client_id, seller_token):
-    """Обновить остатки"""
+    """Обновляет остатки товаров на сайте Ozon.
+
+    Args:
+        stocks: Список остатков для обновления.
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        Возвращает результат в виде словаря.
+
+    Raises:
+        requests.exceptions.RequestException: Если запрос к API не удался.
+    """
+
     url = "https://api-seller.ozon.ru/v1/product/import/stocks"
     headers = {
         "Client-Id": client_id,
@@ -75,8 +126,16 @@ def update_stocks(stocks: list, client_id, seller_token):
 
 
 def download_stock():
-    """Скачать файл ostatki с сайта casio"""
-    # Скачать остатки с сайта
+    """Скачивает файл с остатками товаров с сайта Casio.
+
+    Returns:
+        Возвращает список остатков товаров в виде словаря.
+
+    Raises:
+        requests.exceptions.RequestException:
+        FileNotFoundError:
+    """
+
     casio_url = "https://timeworld.ru/upload/files/ostatki.zip"
     session = requests.Session()
     response = session.get(casio_url)
@@ -96,7 +155,19 @@ def download_stock():
 
 
 def create_stocks(watch_remnants, offer_ids):
-    # Уберем то, что не загружено в seller
+    """Создает список остатков товаров для обновления.
+
+    Args:
+        watch_remnants: Список остатков товаров.
+        offer_ids: Список артикулов товаров.
+
+    Returns:
+        Возвращает список остатков товаров для обновления.
+
+    Raises:
+        ValueError: Если артикул товара не найден.
+    """
+
     stocks = []
     for watch in watch_remnants:
         if str(watch.get("Код")) in offer_ids:
@@ -116,6 +187,19 @@ def create_stocks(watch_remnants, offer_ids):
 
 
 def create_prices(watch_remnants, offer_ids):
+    """Создает список цен товаров для обновления.
+
+    Args:
+        watch_remnants: Список остатков товаров.
+        offer_ids: Список артикулов товаров.
+
+    Returns:
+        Возвращает список цен товаров для обновления.
+
+    Raises:
+        ValueError: Если артикул товара не найден.
+    """
+
     prices = []
     for watch in watch_remnants:
         if str(watch.get("Код")) in offer_ids:
@@ -131,17 +215,54 @@ def create_prices(watch_remnants, offer_ids):
 
 
 def price_conversion(price: str) -> str:
-    """Преобразовать цену. Пример: 5'990.00 руб. -> 5990"""
+    """Преобразует значение цена из строки в числа до точки.
+
+    Args:
+        price (str): Строка, представляющая цену, с символами и десятичными числами.
+
+    Returns:
+        str: Возвращает значение только цифры до точки.
+
+    Examples:
+        price_conversion("19'990.00 руб.") >>> '5990'
+
+    Raises:
+        requests.exceptions.RequestException:
+    """
+
     return re.sub("[^0-9]", "", price.split(".")[0])
 
 
 def divide(lst: list, n: int):
-    """Разделить список lst на части по n элементов"""
+    """Разделяет список на части по n элементов.
+
+    Args:
+        lst: Список, который необходимо разделить.
+        n: Количество элементов в каждой части.
+
+    Examples:
+        Возвращает разделенный список [[1, 2], [3, 4], [5, 6]]
+    """
+
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
 
 
 async def upload_prices(watch_remnants, client_id, seller_token):
+    """Получает список артикулов товаров и обновляет цены на сайте Ozon.
+
+    Args:
+        watch_remnants: Список остатков товаров.
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        Возвращает список обновленных цен товаров.
+
+    Raises:
+       requests.exceptions.RequestException:
+    """
+
     offer_ids = get_offer_ids(client_id, seller_token)
     prices = create_prices(watch_remnants, offer_ids)
     for some_price in list(divide(prices, 1000)):
@@ -150,6 +271,21 @@ async def upload_prices(watch_remnants, client_id, seller_token):
 
 
 async def upload_stocks(watch_remnants, client_id, seller_token):
+    """Получает список артикулов товаров и обновляет их остатки на сайте Ozon.
+
+    Args:
+        watch_remnants: Список остатков товаров.
+        client_id: id клиента для аутентификации.
+        seller_token: Токен продавца для аутентификации.
+
+    Returns:
+        not_empty: Список товаров с ненулевыми остатками.
+        stocks: Список всех товаров с остатками.
+
+    Raises:
+        requests.exceptions.RequestException:
+    """
+
     offer_ids = get_offer_ids(client_id, seller_token)
     stocks = create_stocks(watch_remnants, offer_ids)
     for some_stock in list(divide(stocks, 100)):
@@ -159,6 +295,14 @@ async def upload_stocks(watch_remnants, client_id, seller_token):
 
 
 def main():
+    """Основная функция для обновления остатков и цен товаров.
+
+   Использует переменные окружения для получения токена продавца и идентификатора клиента.
+
+    Raises:
+        requests.exceptions.RequestException: Если запрос к API не удался.
+        Exception: Если произошла ошибка при обработке данных.
+    """
     env = Env()
     seller_token = env.str("SELLER_TOKEN")
     client_id = env.str("CLIENT_ID")
